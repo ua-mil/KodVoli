@@ -1,9 +1,13 @@
 import openai
 import feedparser
 import telebot
+import os
+from dotenv import load_dotenv
 from datetime import datetime
 
-openai.api_key = "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"
+load_dotenv()
+
+openai.api_key = os.getenv("OPENAI_API_KEY")
 bot = telebot.TeleBot("8192884376:AAEqoKclZUWWPCYVBRUlOLj4SHSzWkCybp8")
 CHANNEL_ID = "@kodvoli"
 
