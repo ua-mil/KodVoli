@@ -3,9 +3,9 @@ import feedparser
 import telebot
 from datetime import datetime
 
-openai.api_key = "YOUR_OPENAI_KEY"
-bot = telebot.TeleBot("YOUR_TELEGRAM_BOT_TOKEN")
-CHANNEL_ID = "@yourchannel"
+openai.api_key = "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"
+bot = telebot.TeleBot("8192884376:AAEqoKclZUWWPCYVBRUlOLj4SHSzWkCybp8")
+CHANNEL_ID = "@kodvoli"
 
 def generate_daily_post():
     prompt = (
