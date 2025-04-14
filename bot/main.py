@@ -5,9 +5,7 @@ from datetime import datetime
 from openai import OpenAI
 
 # Завантаження .env тільки локально
-if os.getenv("RAILWAY_ENVIRONMENT") is None:
-    #from dotenv import load_dotenv
-    #load_dotenv()
+from openai import OpenAI
 
 client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
