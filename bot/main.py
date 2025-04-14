@@ -28,6 +28,9 @@ def generate_daily_post():
             "Згенеруй коротку, містичну, патріотичну цитату або філософську думку "
             "у стилі українського каналу KodVoli, яка підійде як 'Рубрика дня'."
         )
+        
+        print(f"API ключ (перевірка): {client.api_key}")
+        
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
