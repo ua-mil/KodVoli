@@ -87,5 +87,8 @@ def handle_comment(message):
 
 print("KodVoli AI Bot запущено. Очікуємо команди...")
 
+bot.remove_webhook()
+bot.polling()
+
 # Запуск бота
 bot.polling()
