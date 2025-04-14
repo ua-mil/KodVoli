@@ -29,7 +29,7 @@ def generate_daily_post():
             "у стилі українського каналу KodVoli, яка підійде як 'Рубрика дня'."
         )
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
@@ -55,7 +55,7 @@ def send_news_summary(message):
     try:
         news = fetch_latest_news()
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "Ти містичний AI-аналітик для каналу KodVoli. Поясни новину стисло, глибоко й влучно."},
                 {"role": "user", "content": news}
@@ -74,7 +74,7 @@ def handle_comment(message):
         try:
             user_text = message.text
             response = client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "Ти дотепний, містичний AI-куратор каналу KodVoli, який відповідає з повагою, філософією та іронією."},
                     {"role": "user", "content": user_text}
