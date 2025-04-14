@@ -9,17 +9,16 @@ if os.getenv("RAILWAY_ENVIRONMENT") is None:
     from dotenv import load_dotenv
     load_dotenv()
 
-client = OpenAI()
+client = OpenAI(
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
 
-telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
-if not telegram_token:
-    raise ValueError("TELEGRAM_BOT_TOKEN не встановлено.")
 if not CHANNEL_ID:
-    raise ValueError("CHANNEL_ID не встановлено.")
-
-bot = telebot.TeleBot(telegram_token)
+    raise ValueError("CHANNEL_ID не встановлено")
 
 # Генерація цитати дня
 def generate_daily_post():
@@ -28,19 +27,16 @@ def generate_daily_post():
             "Згенеруй коротку, містичну, патріотичну цитату або філософську думку "
             "у стилі українського каналу KodVoli, яка підійде як 'Рубрика дня'."
         )
-        
-        print(f"API ключ (перевірка): {client.api_key}")
-        
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="openai/gpt-3.5-turbo",
             messages=[{"role": "user", "content": prompt}]
         )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"OpenAI помилка: {e}")
+        print(f"OpenRouter помилка: {e}")
         return "Помилка генерації цитати. Спробуй пізніше."
 
-# Отримання новини з RSS
+# Отримання новини
 def fetch_latest_news():
     feed = feedparser.parse("https://www.pravda.com.ua/rss/")
     top_article = feed.entries[0]
@@ -58,40 +54,35 @@ def send_news_summary(message):
     try:
         news = fetch_latest_news()
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="openai/gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "Ти містичний AI-аналітик для каналу KodVoli. Поясни новину стисло, глибоко й влучно."},
+                {"role": "system", "content": "Ти містичний AI-аналітик каналу KodVoli. Поясни новину стисло, глибоко й влучно."},
                 {"role": "user", "content": news}
             ]
         )
         summary = response.choices[0].message.content
         bot.send_message(CHANNEL_ID, f"**Новина дня:**\n\n{summary}", parse_mode="Markdown")
     except Exception as e:
-        print(f"OpenAI/news помилка: {e}")
+        print(f"OpenRouter/news помилка: {e}")
         bot.send_message(CHANNEL_ID, "Помилка під час аналізу новини.")
 
-# Відповіді на коментарі
+# Відповідь на коментарі
 @bot.message_handler(func=lambda m: True)
 def handle_comment(message):
     if message.chat.type == "supergroup":
         try:
-            user_text = message.text
             response = client.chat.completions.create(
-                model="gpt-3.5-turbo",
+                model="openai/gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "Ти дотепний, містичний AI-куратор каналу KodVoli, який відповідає з повагою, філософією та іронією."},
-                    {"role": "user", "content": user_text}
+                    {"role": "system", "content": "Ти містичний AI-куратор каналу KodVoli. Відповідай філософсько, з гумором і повагою."},
+                    {"role": "user", "content": message.text}
                 ]
             )
             answer = response.choices[0].message.content
             bot.reply_to(message, answer)
         except Exception as e:
-            print(f"OpenAI/comment помилка: {e}")
+            print(f"OpenRouter/comment помилка: {e}")
 
-print("KodVoli AI Bot запущено. Очікуємо команди...")
-
+print("KodVoli AI Bot (OpenRouter) запущено.")
 bot.remove_webhook()
-bot.polling()
-
-# Запуск бота
 bot.polling()
