@@ -1,15 +1,16 @@
 import os
-import openai
 import feedparser
 import telebot
 from datetime import datetime
+from openai import OpenAI
 
-# Завантажуємо .env тільки локально
+# Завантаження .env тільки локально
 if os.getenv("RAILWAY_ENVIRONMENT") is None:
     from dotenv import load_dotenv
     load_dotenv()
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+client = OpenAI()
+
 telegram_token = os.getenv("TELEGRAM_BOT_TOKEN")
 CHANNEL_ID = os.getenv("CHANNEL_ID")
 
@@ -27,11 +28,11 @@ def generate_daily_post():
             "Згенеруй коротку, містичну, патріотичну цитату або філософську думку "
             "у стилі українського каналу KodVoli, яка підійде як 'Рубрика дня'."
         )
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
     except Exception as e:
         print(f"OpenAI помилка: {e}")
         return "Помилка генерації цитати. Спробуй пізніше."
@@ -53,14 +54,14 @@ def send_daily_post(message):
 def send_news_summary(message):
     try:
         news = fetch_latest_news()
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "Ти містичний AI-аналітик для каналу KodVoli. Поясни новину стисло, глибоко й влучно."},
                 {"role": "user", "content": news}
             ]
         )
-        summary = response['choices'][0]['message']['content']
+        summary = response.choices[0].message.content
         bot.send_message(CHANNEL_ID, f"**Новина дня:**\n\n{summary}", parse_mode="Markdown")
     except Exception as e:
         print(f"OpenAI/news помилка: {e}")
@@ -72,19 +73,19 @@ def handle_comment(message):
     if message.chat.type == "supergroup":
         try:
             user_text = message.text
-            response = openai.ChatCompletion.create(
+            response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "Ти дотепний, містичний AI-куратор каналу KodVoli, який відповідає з повагою, філософією та іронією."},
                     {"role": "user", "content": user_text}
                 ]
             )
-            answer = response['choices'][0]['message']['content']
+            answer = response.choices[0].message.content
             bot.reply_to(message, answer)
         except Exception as e:
             print(f"OpenAI/comment помилка: {e}")
 
 print("KodVoli AI Bot запущено. Очікуємо команди...")
 
-# Старт бота
+# Запуск бота
 bot.polling()
