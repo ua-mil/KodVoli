@@ -7,14 +7,19 @@ import schedule
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # для GPT
+PICOGEN_API_KEY = os.getenv("PICOGEN_API_KEY")        # для Picogen
 
 bot = telebot.TeleBot(BOT_TOKEN)
 sent_links = set()
 
-# === AI запити ===
-def generate_openrouter_response(prompt):
+# === Генерація мем-коментаря через GPT (OpenRouter)
+def generate_meme_text(title):
     try:
+        prompt = (
+            f"Напиши короткий іронічний мем-коментар українською мовою до новини: \"{title}\". "
+            "Формат: 1-2 рядки, з сарказмом або патріотичним гумором."
+        )
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
@@ -30,10 +35,34 @@ def generate_openrouter_response(prompt):
         data = response.json()
         return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"[AI ERROR] {e}")
-        return ""
+        print(f"[GPT ERROR] {e}")
+        return "Без коментарів. Але ми все памʼятаємо."
 
-# === Основна логіка ===
+# === Генерація картинки через Picogen
+def generate_meme_image(prompt):
+    try:
+        picogen_prompt = f"Мем-ілюстрація до новини: {prompt}. У стилі сатиричного цифрового мистецтва."
+
+        response = requests.post(
+            "https://api.picogen.io/v1/generate",
+            headers={
+                "Authorization": f"Bearer {PICOGEN_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "prompt": picogen_prompt,
+                "model": "stable-diffusion",
+                "size": "1024x1024"
+            }
+        )
+
+        data = response.json()
+        return data["data"]["url"]
+    except Exception as e:
+        print(f"[Picogen ERROR] {e}")
+        return None
+
+# === Отримання новин і публікація
 def fetch_and_send_news():
     print("Оновлення новин...")
     feeds = {
@@ -48,32 +77,29 @@ def fetch_and_send_news():
                 sent_links.add(entry.link)
 
                 title = entry.title
+                summary = entry.summary
                 link = entry.link
 
-                quote = generate_openrouter_response(
-                    f"Напиши філософську або містичну українську цитату, яка підійде до новини: \"{title}\""
-                )
-
-                meme = generate_openrouter_response(
-                    f"Придумай короткий іронічний мем-коментар українською мовою до новини: \"{title}\". "
-                    "Формат: короткий, як для Telegram-бота, максимум 1-2 рядки."
-                )
+                meme = generate_meme_text(title)
+                image_url = generate_meme_image(title)
 
                 message = (
                     f"<b>{source}</b>\n"
                     f"<a href='{link}'>{title}</a>\n\n"
-                    f"🧠 <i>{quote}</i>\n\n"
+                    f"{summary}\n\n"
                     f"😏 <b>Мем:</b>\n{meme}"
                 )
 
                 try:
                     bot.send_message(CHAT_ID, message, parse_mode="HTML", disable_web_page_preview=False)
-                    print(f"Надіслано новину: {title}")
+                    if image_url:
+                        bot.send_photo(CHAT_ID, image_url, caption="🎨 Мем-ілюстрація", parse_mode="HTML")
+                    print(f"Надіслано: {title}")
                 except Exception as e:
-                    print(f"Помилка надсилання: {e}")
+                    print(f"[SEND ERROR] {e}")
                 time.sleep(3)
 
-# === Планування ===
+# === Планування щогодини
 schedule.every(1).hours.do(fetch_and_send_news)
 
 if __name__ == "__main__":
