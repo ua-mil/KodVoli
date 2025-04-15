@@ -21,9 +21,9 @@ def get_real_exchange_rates():
         if not usd or not eur:
             return "Курси недоступні зараз."
         return (
+            f"📅 Дата: {usd['exchangedate']}"
             f"💵 Долар: {usd['rate']} грн\n"
             f"💶 Євро: {eur['rate']} грн\n"
-            f"📅 Дата: {usd['exchangedate']}"
         )
     except Exception as e:
         print(f"[NBU ERROR] {e}")
