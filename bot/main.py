@@ -1,66 +1,83 @@
 import os
+import feedparser
+import telebot
+import requests
 import time
 import schedule
-import telebot
-from openai import OpenAI
-from datetime import datetime
 
-# Зчитуємо змінні з Railway Environment Variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 CHAT_ID = os.getenv("CHAT_ID")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 bot = telebot.TeleBot(BOT_TOKEN)
+sent_links = set()
 
-# OpenRouter через OpenAI SDK
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=OPENROUTER_API_KEY
-)
-
-# Генерація відповіді
+# === AI запити ===
 def generate_openrouter_response(prompt):
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}],
-            extra_headers={
-                "HTTP-Referer": "https://kodvoli.ua",  # можеш змінити або залишити
-                "X-Title": "KodVoli AI Bot"
+        response = requests.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "HTTP-Referer": "https://yourproject.com",
+                "X-Title": "KodVoliBot"
+            },
+            json={
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [{"role": "user", "content": prompt}]
             }
         )
-        return response.choices[0].message.content
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
     except Exception as e:
-        print(f"[OPENROUTER ERROR] {e}")
-        return "Помилка генерації."
+        print(f"[AI ERROR] {e}")
+        return ""
 
-# Надсилання щогодини
-def send_hourly_update():
-    print(f"[{datetime.now().strftime('%H:%M')}] Генеруємо автооновлення...")
-    news = generate_openrouter_response("Сгенеруй коротку актуальну новину на тему штучного інтелекту українською мовою.")
-    comment = generate_openrouter_response("Напиши короткий коментар або іронічну думку про ШІ українською мовою.")
-    quote = generate_openrouter_response("Напиши коротку містичну або філософську цитату для українського каналу KodVoli.")
+# === Основна логіка ===
+def fetch_and_send_news():
+    print("Оновлення новин...")
+    feeds = {
+        "УНІАН": "https://www.unian.ua/rss/index.rss",
+        "Українська правда": "https://www.pravda.com.ua/rss/"
+    }
 
-    full_message = (
-        f"🕐 <b>Автооновлення {datetime.now().strftime('%H:%M')}:</b>\n\n"
-        f"📰 <b>Новина:</b>\n{news}\n\n"
-        f"💬 <b>Коментар:</b>\n{comment}\n\n"
-        f"📜 <b>Цитата:</b>\n{quote}"
-    )
+    for source, url in feeds.items():
+        feed = feedparser.parse(url)
+        for entry in feed.entries[:3]:
+            if entry.link not in sent_links:
+                sent_links.add(entry.link)
 
-    try:
-        bot.send_message(CHAT_ID, full_message, parse_mode="HTML")
-        print("Надіслано!")
-    except Exception as e:
-        print(f"[SEND ERROR] {e}")
+                title = entry.title
+                link = entry.link
 
-# Планування щогодини
-schedule.every().hour.at(":00").do(send_hourly_update)
+                quote = generate_openrouter_response(
+                    f"Напиши філософську або містичну українську цитату, яка підійде до новини: \"{title}\""
+                )
 
-# Старт циклу
+                meme = generate_openrouter_response(
+                    f"Придумай короткий іронічний мем-коментар українською мовою до новини: \"{title}\". "
+                    "Формат: короткий, як для Telegram-бота, максимум 1-2 рядки."
+                )
+
+                message = (
+                    f"<b>{source}</b>\n"
+                    f"<a href='{link}'>{title}</a>\n\n"
+                    f"🧠 <i>{quote}</i>\n\n"
+                    f"😏 <b>Мем:</b>\n{meme}"
+                )
+
+                try:
+                    bot.send_message(CHAT_ID, message, parse_mode="HTML", disable_web_page_preview=False)
+                    print(f"Надіслано новину: {title}")
+                except Exception as e:
+                    print(f"Помилка надсилання: {e}")
+                time.sleep(3)
+
+# === Планування ===
+schedule.every(1).hours.do(fetch_and_send_news)
+
 if __name__ == "__main__":
-    print("KodVoli AI Bot (OpenRouter) запущено.")
-    send_hourly_update()  # одразу при старті
+    fetch_and_send_news()
     while True:
         schedule.run_pending()
-        time.sleep(10)
+        time.sleep(60)
