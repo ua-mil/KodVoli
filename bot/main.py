@@ -7,6 +7,8 @@ import threading
 from datetime import datetime
 from openai import OpenAI
 
+print(f"[DEBUG] OPENAI_API_KEY: {os.getenv('OPENAI_API_KEY')}")
+
 # === Ініціалізація OpenRouter ===
 client = OpenAI(
     api_key=os.getenv("OPENAI_API_KEY"),
