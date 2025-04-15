@@ -7,7 +7,7 @@ from datetime import datetime
 
 # Зчитуємо змінні з Railway Environment Variables
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 CHAT_ID = os.getenv("CHAT_ID")
 
 bot = telebot.TeleBot(BOT_TOKEN)
