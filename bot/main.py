@@ -11,8 +11,8 @@ print(f"[DEBUG] OPENAI_API_KEY: {os.getenv('OPENAI_API_KEY')}")
 
 # === Ініціалізація OpenRouter ===
 client = OpenAI(
-    api_key=os.getenv("OPENAI_API_KEY"),
-    base_url="https://openrouter.ai/api/v1"
+  base_url="https://openrouter.ai/api/v1",
+  api_key="<OPENROUTER_API_KEY>",
 )
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
