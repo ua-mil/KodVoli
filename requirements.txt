@@ -1,6 +1,5 @@
-openai>=1.0.0
 python-telegram-bot==13.15
 feedparser
+openai>=1.2.4
 pyTelegramBotAPI
 schedule
-python-dotenv
