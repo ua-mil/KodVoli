@@ -3,3 +3,4 @@ feedparser
 openai>=1.2.4
 pyTelegramBotAPI
 schedule
+pillow
