@@ -4,27 +4,27 @@ import telebot
 import requests
 import time
 import schedule
+from PIL import Image, ImageDraw, ImageFont
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")  # для GPT
-PICOGEN_API_KEY = os.getenv("PICOGEN_API_KEY")        # для Picogen
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 bot = telebot.TeleBot(BOT_TOKEN)
 sent_links = set()
 
-# === Генерація мем-коментаря через GPT (OpenRouter)
+# === Генерація мем-коментаря
 def generate_meme_text(title):
     try:
         prompt = (
             f"Напиши короткий іронічний мем-коментар українською мовою до новини: \"{title}\". "
-            "Формат: 1-2 рядки, з сарказмом або патріотичним гумором."
+            "Формат: 1-2 рядки, з сарказмом або бойовим патріотизмом."
         )
         response = requests.post(
             "https://openrouter.ai/api/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "HTTP-Referer": "https://yourproject.com",
+                "HTTP-Referer": "https://kodvoli.ua",
                 "X-Title": "KodVoliBot"
             },
             json={
@@ -32,37 +32,55 @@ def generate_meme_text(title):
                 "messages": [{"role": "user", "content": prompt}]
             }
         )
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        return response.json()["choices"][0]["message"]["content"].strip()
     except Exception as e:
         print(f"[GPT ERROR] {e}")
-        return "Без коментарів. Але ми все памʼятаємо."
+        return "Без коментарів. Але ми памʼятаємо."
 
-# === Генерація картинки через Picogen
+# === Генерація зображення через безкоштовний генератор
 def generate_meme_image(prompt):
     try:
-        picogen_prompt = f"Мем-ілюстрація до новини: {prompt}. У стилі сатиричного цифрового мистецтва."
-
-        response = requests.post(
-            "https://api.picogen.io/v1/generate",
-            headers={
-                "Authorization": f"Bearer {PICOGEN_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "prompt": picogen_prompt,
-                "model": "stable-diffusion",
-                "size": "1024x1024"
-            }
+        response = requests.get(
+            f"https://ai-image-generator.vercel.app/api?prompt={prompt}"
         )
-
-        data = response.json()
-        return data["data"]["url"]
+        if response.status_code == 200:
+            img_path = "meme.jpg"
+            with open(img_path, "wb") as f:
+                f.write(response.content)
+            return img_path
+        else:
+            print(f"[IMAGE GENERATOR ERROR] {response.status_code}")
+            return None
     except Exception as e:
-        print(f"[Picogen ERROR] {e}")
+        print(f"[IMAGE ERROR] {e}")
         return None
 
-# === Отримання новин і публікація
+# === Додаємо рамку + підпис KodVoli
+def add_frame_and_logo(image_path):
+    try:
+        img = Image.open(image_path).convert("RGB")
+        border = 20
+        width, height = img.size
+
+        new_img = Image.new("RGB", (width + 2 * border, height + 2 * border), color=(0, 0, 0))
+        new_img.paste(img, (border, border))
+
+        draw = ImageDraw.Draw(new_img)
+        font = ImageFont.load_default()
+        text = "KodVoli"
+        text_width, text_height = draw.textsize(text, font)
+        x = (new_img.width - text_width) // 2
+        y = new_img.height - text_height - 10
+        draw.text((x, y), text, font=font, fill=(255, 255, 255))
+
+        out_path = "meme_framed.jpg"
+        new_img.save(out_path)
+        return out_path
+    except Exception as e:
+        print(f"[FRAME ERROR] {e}")
+        return image_path
+
+# === Новини + мем
 def fetch_and_send_news():
     print("Оновлення новин...")
     feeds = {
@@ -80,26 +98,27 @@ def fetch_and_send_news():
                 summary = entry.summary
                 link = entry.link
 
-                meme = generate_meme_text(title)
-                image_url = generate_meme_image(title)
+                meme_text = generate_meme_text(title)
+                image_raw = generate_meme_image(title)
+                image_final = add_frame_and_logo(image_raw) if image_raw else None
 
-                message = (
+                msg = (
                     f"<b>{source}</b>\n"
                     f"<a href='{link}'>{title}</a>\n\n"
                     f"{summary}\n\n"
-                    f"😏 <b>Мем:</b>\n{meme}"
+                    f"😏 <b>Мем:</b>\n{meme_text}"
                 )
 
                 try:
-                    bot.send_message(CHAT_ID, message, parse_mode="HTML", disable_web_page_preview=False)
-                    if image_url:
-                        bot.send_photo(CHAT_ID, image_url, caption="🎨 Мем-ілюстрація", parse_mode="HTML")
+                    bot.send_message(CHAT_ID, msg, parse_mode="HTML", disable_web_page_preview=False)
+                    if image_final:
+                        bot.send_photo(CHAT_ID, open(image_final, "rb"), caption="🎨 Мем-ілюстрація")
                     print(f"Надіслано: {title}")
                 except Exception as e:
                     print(f"[SEND ERROR] {e}")
                 time.sleep(3)
 
-# === Планування щогодини
+# === Запуск щогодини
 schedule.every(1).hours.do(fetch_and_send_news)
 
 if __name__ == "__main__":
