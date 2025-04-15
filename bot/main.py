@@ -1,125 +1,65 @@
 import os
-import feedparser
-import telebot
-import schedule
 import time
-import threading
-from datetime import datetime
+import schedule
+from dotenv import load_dotenv
+import telebot
 from openai import OpenAI
 
-print(f"[DEBUG] OPENAI_API_KEY: {os.getenv('OPENAI_API_KEY')}")
+# Завантажуємо змінні оточення
+load_dotenv()
 
-# === Ініціалізація OpenRouter ===
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+CHAT_ID = os.getenv("CHAT_ID")
+
+bot = telebot.TeleBot(BOT_TOKEN)
+
+# Ініціалізація OpenRouter API клієнта
 client = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key="<OPENROUTER_API_KEY>",
+    base_url="https://openrouter.ai/api/v1",
+    api_key=OPENROUTER_API_KEY
 )
 
-bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
-CHANNEL_ID = os.getenv("CHANNEL_ID")
-
-if not CHANNEL_ID:
-    raise ValueError("CHANNEL_ID не встановлено")
-
-# === Генерація цитати дня ===
-def generate_daily_post():
+# Функція для генерації контенту через OpenRouter
+def generate_openrouter_response(prompt):
     try:
-        prompt = (
-            "Згенеруй коротку, містичну, патріотичну цитату або філософську думку "
-            "у стилі українського каналу KodVoli, яка підійде як 'Рубрика дня'."
-        )
         response = client.chat.completions.create(
             model="openai/gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
+            messages=[{"role": "user", "content": prompt}],
+            extra_headers={
+                "HTTP-Referer": "https://example.com",
+                "X-Title": "KodVoli Bot"
+            }
         )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"[QUOTE] Помилка OpenRouter: {e}")
-        return "Помилка генерації цитати. Спробуй пізніше."
+        return f"Помилка генерації: {e}"
 
-# === Отримання новини ===
-def fetch_latest_news():
-    feed = feedparser.parse("https://www.pravda.com.ua/rss/")
-    top_article = feed.entries[0]
-    return f"{top_article.title}\n{top_article.link}\n\n{top_article.summary}"
+# Основна функція для відправки щогодинного контенту
+def send_hourly_content():
+    news = generate_openrouter_response("Сгенеруй коротку актуальну новину на тему штучного інтелекту українською мовою.")
+    quote = generate_openrouter_response("Надрукуй мотивуючу цитату українською мовою.")
+    comment = generate_openrouter_response("Напиши короткий іронічний коментар до новини про ШІ українською мовою.")
 
-# === Ручна команда /daily ===
-@bot.message_handler(commands=['daily'])
-def send_daily_post(message):
-    post = generate_daily_post()
-    bot.send_message(CHANNEL_ID, f"**Рубрика дня ({datetime.now().strftime('%d.%m.%Y')}):**\n\n{post}", parse_mode="Markdown")
+    full_message = (
+        f"📰 <b>НОВИНА ГОДИНИ</b>\n{news}\n\n"
+        f"💬 <b>КОМЕНТАР</b>\n{comment}\n\n"
+        f"📜 <b>ЦИТАТА</b>\n{quote}"
+    )
 
-# === Ручна команда /news ===
-@bot.message_handler(commands=['news'])
-def send_news_summary(message):
     try:
-        news = fetch_latest_news()
-        if len(news) > 2000:
-            news = news[:1900] + "\n[...скоротили для GPT]"
-
-        response = client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ти містичний AI-аналітик каналу KodVoli. Поясни новину стисло, глибоко й влучно."},
-                {"role": "user", "content": news}
-            ]
-        )
-        summary = response.choices[0].message.content
-        bot.send_message(CHANNEL_ID, f"**Новина дня:**\n\n{summary}", parse_mode="Markdown")
-
+        bot.send_message(CHAT_ID, full_message, parse_mode="HTML")
+        print("Повідомлення надіслано.")
     except Exception as e:
-        print(f"[NEWS] ПОМИЛКА: {e}")
-        bot.send_message(CHANNEL_ID, "Помилка під час аналізу новини.")
+        print(f"Помилка надсилання: {e}")
 
-# === Відповідь на коментарі ===
-@bot.message_handler(func=lambda m: True)
-def handle_comment(message):
-    if message.chat.type == "supergroup":
-        try:
-            response = client.chat.completions.create(
-                model="openai/gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "Ти AI-куратор каналу KodVoli. Відповідай філософсько, містично, з повагою і гумором."},
-                    {"role": "user", "content": message.text}
-                ]
-            )
-            answer = response.choices[0].message.content
-            bot.reply_to(message, answer)
-        except Exception as e:
-            print(f"[COMMENT] ПОМИЛКА: {e}")
+# Плануємо відправку щогодини
+schedule.every().hour.at(":00").do(send_hourly_content)
 
-# === Автоматичне надсилання новини щогодини ===
-def auto_hourly_news():
-    try:
-        news = fetch_latest_news()
-        if len(news) > 2000:
-            news = news[:1900] + "\n[...скоротили для GPT]"
-
-        response = client.chat.completions.create(
-            model="openai/gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Ти AI-аналітик каналу KodVoli. Поясни новину містично і стисло."},
-                {"role": "user", "content": news}
-            ]
-        )
-        summary = response.choices[0].message.content
-        bot.send_message(CHANNEL_ID, f"**Авто-новина ({datetime.now().strftime('%H:%M')}):**\n\n{summary}", parse_mode="Markdown")
-
-    except Exception as e:
-        print(f"[AUTO-NEWS] ПОМИЛКА: {e}")
-
-# === Розклад: щогодини ===
-schedule.every().hour.at(":00").do(auto_hourly_news)
-
-# === Планувальник у фоні ===
-def run_scheduler():
+# Запускаємо постійний цикл
+if __name__ == "__main__":
+    print("KodVoli AI Bot запущено. Очікуємо на годинну відправку...")
+    send_hourly_content()  # Надіслати одразу при старті
     while True:
         schedule.run_pending()
-        time.sleep(30)
-
-threading.Thread(target=run_scheduler, daemon=True).start()
-
-# === Старт ===
-print("KodVoli AI Bot (OpenRouter) запущено.")
-bot.remove_webhook()
-bot.polling()
+        time.sleep(10)
