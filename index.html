@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KodVoli | LiFePO₄ Offline OSINT Energy Tool v3.2</title>
+
+  <style>
+    :root {
+      --bg: #020617;
+      --grid: #1e293b;
+      --accent: #22d3ee;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --ok: #4ade80;
+      --warn: #f87171;
+    }
+    body {
+      margin: 0;
+      font-family: Consolas, "Segoe UI", monospace;
+      background: radial-gradient(circle at top, #020617, #000);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      padding: 20px;
+      border-bottom: 1px solid var(--grid);
+      text-align: center;
+    }
+    header h1 {
+      margin: 0;
+      color: var(--accent);
+      font-size: 24px;
+    }
+    header span {
+      color: var(--muted);
+      font-size: 13px;
+      display: block;
+      margin-top: 5px;
+    }
+    .panel {
+      max-width: 1100px;
+      margin: 20px auto;
+      padding: 0 20px;
+      flex: 1;
+    }
+    .section {
+      border: 1px solid var(--grid);
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      background: rgba(30, 41, 59, 0.3);
+    }
+    .section h2 {
+      margin: 0 0 12px 0;
+      color: var(--accent);
+      font-size: 18px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid var(--grid);
+      padding: 10px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-weight: normal;
+      background: rgba(0, 0, 0, 0.3);
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      background: #000;
+      border: 1px solid var(--grid);
+      color: var(--text);
+      box-sizing: border-box;
+      border-radius: 4px;
+    }
+    select {
+      height: 40px;
+    }
+    .result {
+      background: #000;
+      font-weight: bold;
+    }
+    .ok {
+      color: var(--ok);
+    }
+    .warn {
+      color: var(--warn);
+    }
+    button {
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #67e8f9;
+    }
+    #copyNotification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--ok);
+      color: #000;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: bold;
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 15px;
+      border-top: 1px solid var(--grid);
+      margin-top: auto;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    <h1>KodVoli Offline OSINT Energy Tool v3.2</h1>
+    <span>LiFePO₄ • Інвертори • Повна DC-аналітика</span>
+  </header>
+
+  <div class="panel">
+
+    <!-- СИСТЕМА -->
+    <div class="section">
+      <h2>⚙️ Система</h2>
+      <table>
+        <tr><th>Параметр</th><th>Значення</th><th>Одиниця</th></tr>
+        <tr>
+          <td>Номінальна DC система</td>
+          <td>
+            <select id="systemV">
+              <option value="12">12</option>
+              <option value="24">24</option>
+              <option value="48" selected>48</option>
+            </select>
+          </td>
+          <td>V</td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- АКБ -->
+    <div class="section">
+      <h2>🔋 Акумулятор LiFePO₄</h2>
+      <table>
+        <tr><th>Параметр</th><th>Значення</th><th>Одиниця</th></tr>
+        <tr><td>Кількість елементів (S)</td><td id="cells">-</td><td>шт</td></tr>
+        <tr><td>Ємність</td><td><input id="Ah" type="number" min="1" step="1" value="100"></td><td>Ah</td></tr>
+        <tr><td>Номінальна напруга елемента</td><td><input id="Vcell" type="number" min="0" step="0.01" value="3.2"></td><td>V</td></tr>
+        <tr><td>Макс. напруга елемента</td><td><input id="VcellMax" type="number" min="0" step="0.01" value="3.65"></td><td>V</td></tr>
+        <tr><td>Мін. напруга елемента</td><td><input id="VcellMin" type="number" min="0" step="0.01" value="2.5"></td><td>V</td></tr>
+        <tr><td>DoD (глибина розряду)</td><td><input id="DoD" type="number" min="0" max="100" step="1" value="80"></td><td>%</td></tr>
+      </table>
+    </div>
+
+    <!-- ІНВЕРТОР -->
+    <div class="section">
+      <h2>⚡ Інвертор</h2>
+      <table>
+        <tr><th>Параметр</th><th>Значення</th><th>Одиниця</th></tr>
+        <tr><td>ККД інвертора</td><td><input id="eff" type="number" min="50" max="99" step="1" value="93"></td><td>%</td></tr>
+      </table>
+    </div>
+
+    <!-- НАВАНТАЖЕННЯ -->
+    <div class="section">
+      <h2>🔌 Навантаження та кабель</h2>
+      <table>
+        <tr><th>Параметр</th><th>Значення</th><th>Одиниця</th></tr>
+        <tr><td>Потужність навантаження</td><td><input id="loadW" type="number" min="0" step="10" value="3000"></td><td>W</td></tr>
+        <tr><td>Довжина кабелю (один бік)</td><td><input id="length" type="number" min="0" step="0.1" value="2"></td><td>м</td></tr>
+      </table>
+    </div>
+
+    <!-- АНАЛІТИКА -->
+    <div class="section">
+      <h2>📊 Аналітика</h2>
+      <table>
+        <tr class="result"><td>Номінальна напруга АКБ</td><td id="Vnom">-</td><td>V</td></tr>
+        <tr class="result"><td>Максимальна напруга АКБ</td><td id="Vmax">-</td><td>V</td></tr>
+        <tr class="result"><td>Мінімальна напруга АКБ</td><td id="Vmin">-</td><td>V</td></tr>
+        <tr class="result"><td>Повна енергія АКБ</td><td id="Efull">-</td><td>Wh</td></tr>
+        <tr class="result"><td>Доступна енергія (з ККД)</td><td id="Euse">-</td><td>Wh</td></tr>
+        <tr class="result"><td>DC струм від АКБ</td><td id="Idc">-</td><td>A</td></tr>
+        <tr class="result"><td>Час автономної роботи</td><td id="time">-</td><td>год</td></tr>
+        <tr class="result"><td>Рекомендований перетин кабелю</td><td id="cable">-</td><td>мм²</td></tr>
+        <tr class="result"><td>Падіння напруги на кабелі</td><td id="drop">-</td><td>%</td></tr>
+        <tr><td>Оцінка системи</td><td id="warn">-</td><td></td></tr>
+      </table>
+
+      <button id="copyBtn">📋 Копіювати результати аналитики</button>
+    </div>
+
+  </div>
+
+  <div id="copyNotification">Скопійовано!</div>
+
+  <footer>
+    KodVoli © Offline OSINT Energy Tool • ΔV ≤ 2–3% — рекомендована інженерна норма
+  </footer>
+
+  <script>
+    // Получаем элементы
+    const systemV   = document.getElementById('systemV');
+    const cells     = document.getElementById('cells');
+    const Ah        = document.getElementById('Ah');
+    const Vcell     = document.getElementById('Vcell');
+    const VcellMax  = document.getElementById('VcellMax');
+    const VcellMin  = document.getElementById('VcellMin');
+    const DoD       = document.getElementById('DoD');
+    const eff       = document.getElementById('eff');
+    const loadW     = document.getElementById('loadW');
+    const length    = document.getElementById('length');
+
+    const Vnom      = document.getElementById('Vnom');
+    const Vmax      = document.getElementById('Vmax');
+    const Vmin      = document.getElementById('Vmin');
+    const Efull     = document.getElementById('Efull');
+    const Euse      = document.getElementById('Euse');
+    const Idc       = document.getElementById('Idc');
+    const time      = document.getElementById('time');
+    const cable     = document.getElementById('cable');
+    const drop      = document.getElementById('drop');
+    const warn      = document.getElementById('warn');
+    const copyBtn   = document.getElementById('copyBtn');
+    const notification = document.getElementById('copyNotification');
+
+    const RHO_CU = 0.0175;
+
+    function seriesCount(V) {
+      if (V === 12) return 4;
+      if (V === 24) return 8;
+      if (V === 48) return 16;
+      return Math.round(V / 3.2);
+    }
+
+    function recommendCable(I) {
+      if (I <= 25) return 6;
+      if (I <= 40) return 10;
+      if (I <= 63) return 16;
+      if (I <= 80) return 25;
+      if (I <= 125) return 35;
+      if (I <= 160) return 50;
+      return 70;
+    }
+
+    function calculate() {
+      const Vsys = parseFloat(systemV.value) || 48;
+      const S = seriesCount(Vsys);
+      cells.textContent = S;
+
+      const capacity = parseFloat(Ah.value) || 100;
+      const vCell = parseFloat(Vcell.value) || 3.2;
+      const vCellMax = parseFloat(VcellMax.value) || 3.65;
+      const vCellMin = parseFloat(VcellMin.value) || 2.5;
+      const dod = (parseFloat(DoD.value) || 80) / 100;
+      const efficiency = (parseFloat(eff.value) || 93) / 100;
+      const load = parseFloat(loadW.value) || 3000;
+      const len = parseFloat(length.value) || 2;
+
+      const vNom = S * vCell;
+      const vMax = S * vCellMax;
+      const vMin = S * vCellMin;
+
+      const energyFull = vNom * capacity;
+      const energyUse = energyFull * dod * efficiency;
+
+      const currentDC = load / Vsys;
+      const runtime = load > 0 ? energyUse / load : 0;
+
+      const cableArea = recommendCable(currentDC);
+      const voltageDrop = cableArea > 0 ? (2 * len * currentDC * RHO_CU / cableArea) / Vsys * 100 : 0;
+
+      let warning = "Режим стабільний";
+      if (currentDC > 120) {
+        warning = "Критичний DC струм (>120 A) — перевір BMS, контакти та запобіжники!";
+      } else if (voltageDrop > 3) {
+        warning = "Падіння напруги > 3% — збільшіть перетин кабелю!";
+      } else if (voltageDrop > 2) {
+        warning = "Падіння напруги 2–3% — бажано збільшити перетин";
+      }
+
+      Vnom.textContent = vNom.toFixed(2);
+      Vmax.textContent = vMax.toFixed(2);
+      Vmin.textContent = vMin.toFixed(2);
+      Efull.textContent = Math.round(energyFull);
+      Euse.textContent = Math.round(energyUse);
+      Idc.textContent = currentDC.toFixed(1);
+      time.textContent = runtime.toFixed(2);
+      cable.textContent = cableArea + " мм²";
+      drop.textContent = voltageDrop.toFixed(2);
+      warn.innerHTML = warning.indexOf('Критичний') > -1 || voltageDrop > 2 ? 
+        `<span class='warn'>${warning}</span>` : 
+        `<span class='ok'>${warning}</span>`;
+    }
+
+    // Кнопка копирования
+    copyBtn.addEventListener('click', () => {
+      const text = `
+KodVoli Offline OSINT Energy Tool v3.2 — Результати аналитики
+
+Номінальна напруга АКБ: ${Vnom.textContent} V
+Максимальна напруга АКБ: ${Vmax.textContent} V
+Мінімальна напруга АКБ: ${Vmin.textContent} V
+Повна енергія АКБ: ${Efull.textContent} Wh
+Доступна енергія (з ККД): ${Euse.textContent} Wh
+DC струм від АКБ: ${Idc.textContent} A
+Час автономної роботи: ${time.textContent} год
+Рекомендований перетин кабелю: ${cable.textContent}
+Падіння напруги на кабелі: ${drop.textContent} %
+Оцінка системи: ${warn.textContent}
+
+Параметри розрахунку:
+- Система: \( {systemV.value} V ( \){cells.textContent} елементів)
+- Ємність: ${Ah.value} Ah
+- DoD: ${DoD.value} %
+- ККД інвертора: ${eff.value} %
+- Навантаження: ${loadW.value} W
+- Довжина кабелю (один бік): ${length.value} м
+      `.trim();
+
+      navigator.clipboard.writeText(text).then(() => {
+        notification.style.opacity = 1;
+        setTimeout(() => { notification.style.opacity = 0; }, 2000);
+      }).catch(() => {
+        alert('Не вдалося скопіювати (можливо, через старий браузер)');
+      });
+    });
+
+    // Обработчики изменений
+    document.querySelectorAll('input, select').forEach(el => {
+      el.addEventListener('input', calculate);
+    });
+
+    // Первый расчёт
+    calculate();
+  </script>
+
+</body>
+</html>
