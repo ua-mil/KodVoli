@@ -1,8 +1,0 @@
-{
-  "build": {
-    "env": {
-      "PYTHON_VERSION": "3.10"
-    }
-  },
-  "start": "python bot/main.py"
-}
